@@ -7,12 +7,17 @@ const fontList = require('font-list');
 
 const store = new Store();
 
-// Log file setup - same directory as the exe
-const logFile = path.join(__dirname, 'app.log');
+// Log file setup - use temp directory for logs
+const logFile = path.join(os.tmpdir(), 'ds-md-viewer.log');
 function log(message) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}\n`;
-  fs.appendFileSync(logFile, logMessage);
+  try {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}\n`;
+    fs.appendFileSync(logFile, logMessage);
+  } catch (err) {
+    // Silently ignore logging errors in production
+    console.error('Log error:', err.message);
+  }
 }
 
 // Catch uncaught exceptions

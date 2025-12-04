@@ -26,6 +26,8 @@ All UI must match system theme as close as possible unless specified otherwise. 
 
 Unless specified otherwise, a file browser must show the complete filesystem starting from root (drives on Windows). The tree should expand to reveal the target location (last used folder or user's home directory by default). Users should never be restricted to a subset of the filesystem.
 
+Use the reusable file browser control from [ds_csharp_file_browser](https://github.com/dsodol/ds_csharp_file_browser) - a WPF TreeView-based component with system icons and on-demand loading.
+
 ## Version Display with Build Info
 
 The application must display version information in the UI including: version number, build number, and build date/time. The build number must auto-increment on every build. This helps identify exactly which build is running during development and troubleshooting.

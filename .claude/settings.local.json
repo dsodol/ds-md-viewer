@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(cmd.exe /c \"cd /d C:\\Users\\dsodo\\project\\built_with_ai\\ds_md_viewer && npm init -y\")",
+      "Bash(cmd.exe /c \"cd /d C:\\Users\\dsodo\\project\\built_with_ai\\ds_md_viewer && npm init -y 2>&1\")",
+      "Bash(powershell -Command \"cd ''C:\\Users\\dsodo\\project\\built_with_ai\\ds_md_viewer''; npm init -y\")",
+      "Bash(powershell -Command:*)",
+      "Bash(cmd /c \"cd /d C:\\Users\\dsodo\\project\\built_with_ai\\ds_md_viewer && npm init -y\")",
+      "Bash(cmd /c \"cd /d C:\\Users\\dsodo\\project\\built_with_ai\\ds_md_viewer && npm.cmd init -y\")",
+      "Bash(bash -c 'cd /c/Users/dsodo/project/built_with_ai/ds_md_viewer && /c/Program\\ Files/nodejs/npm init -y')",
+      "Bash(bash -c:*)",
+      "Bash(taskkill:*)",
+      "Bash(cat:*)",
+      "Bash(/c/Program Files/nodejs/npm.cmd run build)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install font-list --save)",
+      "Bash(/c/Program Files/nodejs/npm.cmd run dist)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

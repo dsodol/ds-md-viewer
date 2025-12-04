@@ -102,6 +102,12 @@ function App() {
       // Check if file is already open in a tab
       const existingTab = tabs.find(t => t.filePath === data.filePath);
       if (existingTab) {
+        // Update content and switch to tab
+        setTabs(prev => prev.map(tab =>
+          tab.filePath === data.filePath
+            ? { ...tab, content: data.content, fileName: data.fileName }
+            : tab
+        ));
         setActiveTabId(existingTab.id);
       } else {
         // Create new tab
@@ -205,6 +211,19 @@ function App() {
   const handleSyncToFile = async () => {
     if (activeTab && activeTab.filePath) {
       await window.electronAPI.syncToFile(activeTab.filePath);
+    }
+  };
+
+  const handleRefreshFile = async () => {
+    if (activeTab && activeTab.filePath) {
+      const result = await window.electronAPI.refreshFile(activeTab.filePath);
+      if (result) {
+        setTabs(prev => prev.map(tab =>
+          tab.id === activeTabId
+            ? { ...tab, content: result.content, fileName: result.fileName }
+            : tab
+        ));
+      }
     }
   };
 
@@ -313,6 +332,15 @@ function App() {
                 </button>
               </div>
             ))}
+            <button
+              className="tab-refresh"
+              onClick={handleRefreshFile}
+              title="Refresh file (reload from disk)"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13.65 2.35A8 8 0 1 0 16 8h-2a6 6 0 1 1-1.76-4.24L10 6h6V0l-2.35 2.35z"/>
+              </svg>
+            </button>
           </div>
         )}
         <MarkdownViewer

@@ -5,6 +5,9 @@ const os = require('os');
 const Store = require('electron-store');
 const fontList = require('font-list');
 
+// Set app name before anything else
+app.setName('DS MD Viewer');
+
 const store = new Store();
 
 // Log file setup - use temp directory for logs
@@ -228,6 +231,16 @@ ipcMain.handle('refresh-folder', async () => {
     return true;
   }
   return false;
+});
+
+ipcMain.handle('refresh-file', async (event, filePath) => {
+  log(`Refreshing file: ${filePath}`);
+  if (filePath && fs.existsSync(filePath)) {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const fileName = path.basename(filePath);
+    return { content, fileName, filePath };
+  }
+  return null;
 });
 
 ipcMain.handle('sync-to-file', async (event, filePath) => {

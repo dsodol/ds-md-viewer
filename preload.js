@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFolderChildren: (folderPath) => ipcRenderer.invoke('get-folder-children', folderPath),
   syncToFile: (filePath) => ipcRenderer.invoke('sync-to-file', filePath),
   refreshFolder: () => ipcRenderer.invoke('refresh-folder'),
+  refreshFile: (filePath) => ipcRenderer.invoke('refresh-file', filePath),
   getSystemFonts: () => ipcRenderer.invoke('get-system-fonts'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),

@@ -4,8 +4,31 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <AssemblyName>DsMdViewer</AssemblyName>
+    <RootNamespace>DsMdViewer</RootNamespace>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="0.38.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\icon.ico" />
+    <Content Include="build-info.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Auto-increment build number and update timestamp on each build -->
+  <Target Name="UpdateBuildInfo" BeforeTargets="BeforeBuild">
+    <Exec Command="powershell -NoProfile -Command &quot;$f='$(ProjectDir)build-info.txt'; $n=1; if(Test-Path $f){$n=[int](Get-Content $f -First 1)+1}; Set-Content $f @($n,(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')); Write-Host 'Build' $n&quot;" />
+  </Target>
 
 </Project>

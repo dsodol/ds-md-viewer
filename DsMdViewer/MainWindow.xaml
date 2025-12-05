@@ -1,44 +1,186 @@
 <Window x:Class="DsMdViewer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="File Browser" Height="600" Width="400">
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="DS MD Viewer"
+        Icon="Assets/icon.ico"
+        Height="800" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing"
+        KeyDown="Window_KeyDown">
+
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="120"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TreeView Grid.Row="0" x:Name="FileTree" ItemsSource="{Binding Nodes}"
-                  TreeViewItem.Expanded="TreeViewItem_Expanded"
-                  SelectedItemChanged="FileTree_SelectedItemChanged">
-            <TreeView.ItemTemplate>
-                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <StackPanel Orientation="Horizontal" Background="Transparent">
-                        <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,4,0"/>
-                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </HierarchicalDataTemplate>
-            </TreeView.ItemTemplate>
-            <TreeView.ItemContainerStyle>
-                <Style TargetType="TreeViewItem">
-                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
-                </Style>
-            </TreeView.ItemContainerStyle>
-        </TreeView>
+        <!-- Menu Bar -->
+        <Menu Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.MenuBarBrushKey}}">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open File..." InputGestureText="Ctrl+O" Click="OpenFile_Click" />
+                <MenuItem Header="Open _Folder..." InputGestureText="Ctrl+Shift+O" Click="OpenFolder_Click" />
+                <Separator />
+                <MenuItem Header="E_xit" InputGestureText="Alt+F4" Click="Exit_Click" />
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Reload" Click="RefreshContent_Click" />
+                <Separator />
+                <MenuItem Header="Zoom _In" Click="ZoomIn_Click" />
+                <MenuItem Header="Zoom _Out" Click="ZoomOut_Click" />
+                <MenuItem Header="_Reset Zoom" Click="ZoomReset_Click" />
+            </MenuItem>
+        </Menu>
 
-        <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
+        <Grid Grid.Row="1">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-        <Border Grid.Row="2" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" BorderThickness="0,1,0,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="LOG" FontSize="11" Margin="8,4"/>
-                <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log}" BorderThickness="0" FontFamily="Consolas" FontSize="11"/>
-            </Grid>
+        <!-- Toolbar -->
+        <Border Grid.Row="0" BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                BorderThickness="0,0,0,1" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            <DockPanel Margin="4">
+                <!-- Left side: Font controls -->
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <TextBlock Text="Font:" VerticalAlignment="Center" Margin="4,0" />
+                    <Button x:Name="BodyFontBtn" MinWidth="120" Margin="0,0,8,0" Padding="6,2"
+                            Click="BodyFontBtn_Click" ToolTip="Click to change body font" />
+                    <TextBlock Text="Code:" VerticalAlignment="Center" Margin="4,0" />
+                    <Button x:Name="CodeFontBtn" MinWidth="120" Margin="0,0,16,0" Padding="6,2"
+                            Click="CodeFontBtn_Click" ToolTip="Click to change code font" />
+
+                    <Button Content="-" Width="24" Click="ZoomOut_Click" ToolTip="Zoom out" />
+                    <TextBlock x:Name="ZoomLabel" Text="100%" Width="45" TextAlignment="Center"
+                               VerticalAlignment="Center" Margin="4,0"
+                               MouseLeftButtonUp="ZoomLabel_Click" Cursor="Hand" ToolTip="Click to reset" />
+                    <Button Content="+" Width="24" Click="ZoomIn_Click" ToolTip="Zoom in" />
+                </StackPanel>
+
+                <!-- Right side: Version info -->
+                <TextBlock x:Name="VersionLabel" DockPanel.Dock="Right" VerticalAlignment="Center"
+                           Margin="8,0" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+
+                <StackPanel /> <!-- Spacer -->
+            </DockPanel>
         </Border>
+
+        <!-- Main content area -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="250" MinWidth="150" MaxWidth="500" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Sidebar -->
+            <Grid Grid.Column="0" x:Name="SidebarGrid">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" MinHeight="100" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition x:Name="TocRow" Height="200" MinHeight="50" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition x:Name="LogRow" Height="150" MinHeight="50" />
+                </Grid.RowDefinitions>
+
+                <!-- File Browser -->
+                <Grid Grid.Row="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                            BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" BorderThickness="0,0,0,1">
+                        <DockPanel Margin="4,2">
+                            <Button DockPanel.Dock="Right" x:Name="SidebarCollapseBtn" Content="◀" Width="22" Height="22"
+                                    Click="ToggleSidebar_Click" ToolTip="Collapse sidebar" Margin="2,0,0,0" />
+                            <Button DockPanel.Dock="Right" Content="↻" Width="22" Height="22"
+                                    Click="RefreshFiles_Click" ToolTip="Refresh" Margin="2,0,0,0" />
+                            <Button DockPanel.Dock="Right" Content="⊕" Width="22" Height="22"
+                                    Click="SyncToFile_Click" ToolTip="Sync to current file" Margin="2,0,0,0" />
+                            <TextBlock Text="FILES" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+                    <TreeView x:Name="FileTree" Grid.Row="1" BorderThickness="0"
+                              SelectedItemChanged="FileTree_SelectedItemChanged"
+                              TreeViewItem.Expanded="FileTree_ItemExpanded" />
+                </Grid>
+
+                <!-- TOC Splitter -->
+                <GridSplitter Grid.Row="1" Height="4" HorizontalAlignment="Stretch"
+                              Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" />
+
+                <!-- Table of Contents -->
+                <Grid Grid.Row="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                            BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" BorderThickness="0,0,0,1">
+                        <DockPanel Margin="4,2">
+                            <Button DockPanel.Dock="Right" x:Name="TocCollapseBtn" Content="▼" Width="22" Height="22"
+                                    Click="ToggleToc_Click" ToolTip="Collapse" />
+                            <TextBlock Text="OUTLINE" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+                    <TreeView x:Name="TocTree" Grid.Row="1" BorderThickness="0"
+                              SelectedItemChanged="TocTree_SelectedItemChanged" />
+                </Grid>
+
+                <!-- Log Splitter -->
+                <GridSplitter Grid.Row="3" Height="4" HorizontalAlignment="Stretch"
+                              Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" />
+
+                <!-- Log Panel -->
+                <Grid Grid.Row="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                            BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" BorderThickness="0,0,0,1">
+                        <DockPanel Margin="4,2">
+                            <Button DockPanel.Dock="Right" x:Name="LogCollapseBtn" Content="▼" Width="22" Height="22"
+                                    Click="ToggleLog_Click" ToolTip="Collapse" />
+                            <Button DockPanel.Dock="Right" Content="✕" Width="22" Height="22"
+                                    Click="ClearLog_Click" ToolTip="Clear log" Margin="0,0,2,0" />
+                            <TextBlock Text="LOG" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+                    <ListBox x:Name="LogList" Grid.Row="1" BorderThickness="0"
+                             FontFamily="Consolas" FontSize="11" />
+                </Grid>
+            </Grid>
+
+            <!-- Sidebar Splitter -->
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                          Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" />
+
+            <!-- Content Area -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Tab Bar -->
+                <Border Grid.Row="0" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" BorderThickness="0,0,0,1">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="↻" Width="28" Height="24"
+                                Click="RefreshContent_Click" ToolTip="Reload file" Margin="4" />
+                        <TabControl x:Name="TabBar" Background="Transparent" BorderThickness="0"
+                                    SelectionChanged="TabBar_SelectionChanged" />
+                    </DockPanel>
+                </Border>
+
+                <!-- WebView for Markdown -->
+                <wv2:WebView2 x:Name="WebView" Grid.Row="1" />
+            </Grid>
+        </Grid>
+        </Grid>
     </Grid>
 </Window>

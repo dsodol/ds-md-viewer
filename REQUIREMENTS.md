@@ -42,9 +42,11 @@ A lightweight Markdown file viewer for Windows with a modern UI, file browser, a
 
 ### 4. Table of Contents (Right part of sidebar, below file browser)
 - Auto-generated from document headings
-- Hierarchical display matching heading levels
+- Hierarchical tree structure matching heading levels (H2 under H1, H3 under H2, etc.)
+- Collapsible/expandable tree nodes
+- "Expand All" and "Collapse All" buttons
 - Click to scroll to heading in document
-- Ctrl+click on heading in document syncs/highlights TOC entry
+- Ctrl+click on text in document syncs/highlights TOC entry (expands parent nodes if needed)
 - Active heading highlighted as user scrolls
 
 ### 5. Typography Controls (Toolbar)
@@ -57,13 +59,18 @@ A lightweight Markdown file viewer for Windows with a modern UI, file browser, a
 - Settings persist between sessions
 
 ### 6. Version Display
-- Show version number and build number in toolbar
-- Format: "v1.0.0 (build N)"
-- Build number auto-increments on each build
+- Show version information in toolbar, including:
+  - Version number (e.g., "v1.0.0")
+  - Build number (auto-increments on each build)
+  - Build date and time
+- Format: "v1.0.0 (build N) - YYYY-MM-DD HH:MM"
+- Build number and timestamp must be generated/updated on each build
 
 ### 7. Application Identity
 - App name: "DS MD Viewer"
-- Custom icon with "DS MD" branding (blue document style)
+- Custom icon with "DS MD" text branding (blue document style)
+- If no icon exists, generate one programmatically with "DS MD" text
+- Icon must be a valid .ico file with multiple sizes (16x16, 32x32, 48x48, 256x256)
 - Icon used for:
   - Application executable
   - Windows taskbar

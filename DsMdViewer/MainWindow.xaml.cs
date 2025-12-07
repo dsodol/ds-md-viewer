@@ -46,6 +46,15 @@ public partial class MainWindow : Window
             .Build();
 
         PreviewMouseWheel += MainWindow_PreviewMouseWheel;
+
+        // Listen for file open requests from other instances
+        App.FileOpenRequested += OnFileOpenRequested;
+    }
+
+    private void OnFileOpenRequested(string filePath)
+    {
+        OpenFile(filePath);
+        Log($"Opened from another instance: {Path.GetFileName(filePath)}");
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -112,15 +121,26 @@ public partial class MainWindow : Window
                 }
             };
 
-            // Capture JavaScript console messages
+            // Handle messages from JavaScript
             WebView.CoreWebView2.WebMessageReceived += (s, args) =>
             {
-                Log($"JS: {args.WebMessageAsJson}");
+                var message = args.TryGetWebMessageAsString();
+                if (message != null && message.StartsWith("toc-sync:"))
+                {
+                    var headingId = message.Substring("toc-sync:".Length);
+                    SelectTocItemById(headingId);
+                }
             };
 
             Log("WebView2 initialized");
 
-            if (!string.IsNullOrEmpty(_settings.LastOpenedFile) && File.Exists(_settings.LastOpenedFile))
+            // Priority: command-line arg > last opened file
+            if (!string.IsNullOrEmpty(App.StartupFilePath) && File.Exists(App.StartupFilePath))
+            {
+                OpenFile(App.StartupFilePath);
+                Log($"Opened from command line: {App.StartupFilePath}");
+            }
+            else if (!string.IsNullOrEmpty(_settings.LastOpenedFile) && File.Exists(_settings.LastOpenedFile))
             {
                 OpenFile(_settings.LastOpenedFile);
             }
@@ -490,7 +510,7 @@ public partial class MainWindow : Window
                 drivePath.Equals(drivePart, StringComparison.OrdinalIgnoreCase))
             {
                 current = driveItem;
-                current.IsExpanded = true;
+                EnsureNodeExpanded(current);
                 break;
             }
         }
@@ -503,19 +523,19 @@ public partial class MainWindow : Window
             if (i == 1) partPath = drivePart + parts[1];
 
             TreeViewItem? found = null;
-            foreach (TreeViewItem child in current.Items)
+            foreach (var child in current.Items)
             {
-                if (child.Tag is string childPath &&
+                if (child is TreeViewItem tvi && tvi.Tag is string childPath &&
                     childPath.Equals(partPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    found = child;
+                    found = tvi;
                     break;
                 }
             }
 
             if (found != null)
             {
-                found.IsExpanded = true;
+                EnsureNodeExpanded(found);
                 current = found;
             }
             else
@@ -526,6 +546,21 @@ public partial class MainWindow : Window
 
         current.IsSelected = true;
         current.BringIntoView();
+    }
+
+    private void EnsureNodeExpanded(TreeViewItem item)
+    {
+        // Force load contents if not yet loaded (has "Loading..." placeholder)
+        if (item.Tag is string path && Directory.Exists(path))
+        {
+            if (item.Items.Count == 1 && item.Items[0] is TreeViewItem placeholder &&
+                placeholder.Header?.ToString() == "Loading...")
+            {
+                item.Items.Clear();
+                LoadDirectoryContents(item, path);
+            }
+        }
+        item.IsExpanded = true;
     }
 
     #endregion
@@ -589,6 +624,9 @@ public partial class MainWindow : Window
 
     private void OpenFile(string filePath)
     {
+        // Ensure we have an absolute path
+        filePath = Path.GetFullPath(filePath);
+
         if (_openTabs.TryGetValue(filePath, out var existingTab))
         {
             TabBar.SelectedItem = existingTab;
@@ -838,24 +876,42 @@ public partial class MainWindow : Window
 <script>
 hljs.highlightAll();
 document.body.onclick = function(e) {{
+    // Ctrl+click: find nearest heading and sync to TOC
+    if (e.ctrlKey) {{
+        var headings = document.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]');
+        var clickY = e.pageY;
+        var nearestHeading = null;
+        for (var i = headings.length - 1; i >= 0; i--) {{
+            var h = headings[i];
+            var rect = h.getBoundingClientRect();
+            var headingY = rect.top + window.scrollY;
+            if (headingY <= clickY) {{
+                nearestHeading = h;
+                break;
+            }}
+        }}
+        if (nearestHeading && nearestHeading.id) {{
+            window.chrome.webview.postMessage('toc-sync:' + nearestHeading.id);
+        }}
+        e.preventDefault();
+        return false;
+    }}
+
     var link = e.target.closest('a');
     if (link) {{
         var href = link.getAttribute('href');
         if (href && href.charAt(0) === '#') {{
             e.preventDefault();
             var targetId = href.slice(1);
-            window.chrome.webview.postMessage('clicked: #' + targetId);
             var targetEl = document.getElementById(targetId);
             if (!targetEl) {{
                 var idx = targetId.indexOf('-');
                 while (idx > 0 && !targetEl) {{
                     var stripped = targetId.slice(idx + 1);
-                    window.chrome.webview.postMessage('trying: ' + stripped);
                     targetEl = document.getElementById(stripped);
                     idx = targetId.indexOf('-', idx + 1);
                 }}
             }}
-            window.chrome.webview.postMessage('found: ' + (targetEl ? 'yes' : 'no'));
             if (targetEl) {{
                 targetEl.scrollIntoView({{behavior: 'smooth', block: 'start'}});
             }}
@@ -904,15 +960,38 @@ document.body.onclick = function(e) {{
     {
         TocTree.Items.Clear();
 
+        if (entries.Count == 0) return;
+
+        // Build hierarchical tree structure
+        var stack = new Stack<(TreeViewItem Item, int Level)>();
+
         foreach (var entry in entries)
         {
             var item = new TreeViewItem
             {
                 Header = entry.Text,
                 Tag = entry.Id,
-                Margin = new Thickness((entry.Level - 1) * 12, 0, 0, 0)
+                IsExpanded = true
             };
-            TocTree.Items.Add(item);
+
+            // Pop items from stack that are at same or higher level
+            while (stack.Count > 0 && stack.Peek().Level >= entry.Level)
+            {
+                stack.Pop();
+            }
+
+            if (stack.Count == 0)
+            {
+                // Top-level item
+                TocTree.Items.Add(item);
+            }
+            else
+            {
+                // Add as child of the item on top of stack
+                stack.Peek().Item.Items.Add(item);
+            }
+
+            stack.Push((item, entry.Level));
         }
     }
 
@@ -929,6 +1008,47 @@ document.body.onclick = function(e) {{
         }
     }
 
+    private void SelectTocItemById(string headingId)
+    {
+        var found = FindTocItemById(TocTree.Items, headingId);
+        if (found != null)
+        {
+            found.IsSelected = true;
+            found.BringIntoView();
+
+            // Expand TOC panel if collapsed
+            if (_settings.TocCollapsed)
+            {
+                TocRow.Height = new GridLength(_settings.TocHeight > 0 ? _settings.TocHeight : 200);
+                TocCollapseBtn.Content = "▼";
+                _settings.TocCollapsed = false;
+            }
+        }
+    }
+
+    private TreeViewItem? FindTocItemById(ItemCollection items, string headingId)
+    {
+        foreach (var obj in items)
+        {
+            if (obj is TreeViewItem item)
+            {
+                if (item.Tag is string id && id.Equals(headingId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return item;
+                }
+
+                // Search children recursively
+                var found = FindTocItemById(item.Items, headingId);
+                if (found != null)
+                {
+                    item.IsExpanded = true; // Expand parent to show the found item
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
     private void ToggleToc_Click(object sender, RoutedEventArgs e)
     {
         if (TocRow.Height.Value > 0)
@@ -943,6 +1063,28 @@ document.body.onclick = function(e) {{
             TocRow.Height = new GridLength(_settings.TocHeight > 0 ? _settings.TocHeight : 200);
             TocCollapseBtn.Content = "▼";
             _settings.TocCollapsed = false;
+        }
+    }
+
+    private void TocExpandAll_Click(object sender, RoutedEventArgs e)
+    {
+        SetTocItemsExpanded(TocTree.Items, true);
+    }
+
+    private void TocCollapseAll_Click(object sender, RoutedEventArgs e)
+    {
+        SetTocItemsExpanded(TocTree.Items, false);
+    }
+
+    private void SetTocItemsExpanded(ItemCollection items, bool expanded)
+    {
+        foreach (var obj in items)
+        {
+            if (obj is TreeViewItem item)
+            {
+                item.IsExpanded = expanded;
+                SetTocItemsExpanded(item.Items, expanded);
+            }
         }
     }
 

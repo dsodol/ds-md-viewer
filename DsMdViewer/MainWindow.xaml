@@ -122,7 +122,11 @@
                             BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" BorderThickness="0,0,0,1">
                         <DockPanel Margin="4,2">
                             <Button DockPanel.Dock="Right" x:Name="TocCollapseBtn" Content="▼" Width="22" Height="22"
-                                    Click="ToggleToc_Click" ToolTip="Collapse" />
+                                    Click="ToggleToc_Click" ToolTip="Collapse panel" />
+                            <Button DockPanel.Dock="Right" Content="⊟" Width="22" Height="22"
+                                    Click="TocCollapseAll_Click" ToolTip="Collapse all" Margin="0,0,2,0" />
+                            <Button DockPanel.Dock="Right" Content="⊞" Width="22" Height="22"
+                                    Click="TocExpandAll_Click" ToolTip="Expand all" Margin="0,0,2,0" />
                             <TextBlock Text="OUTLINE" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </DockPanel>
                     </Border>
